@@ -2,6 +2,7 @@
 using System.IO;
 using System.Net;
 using Newtonsoft.Json;
+using Telegram.Bot;
 
 namespace UrbanDictionaryAPI
 {
@@ -9,25 +10,46 @@ namespace UrbanDictionaryAPI
     {
         static void Main(string[] args)
         {
-            var query = Console.ReadLine();
-            var url = $"http://api.urbandictionary.com/v0/define?term={query}";
-            var request = WebRequest.Create(url);
 
-            var response = request.GetResponse();
-            var httpStatusCode = (response as HttpWebResponse).StatusCode;
+            TelegramBotClient bot = new TelegramBotClient("1823731962:AAEGXcBo69K9RL7nRY_3w8MhIJQ7E__Cj4Q");
 
-            if (httpStatusCode != HttpStatusCode.OK)
+            bot.OnMessage += (s, arg) =>
             {
-                Console.WriteLine(httpStatusCode);
-                return;
-            }
+                var query = arg.Message.Text;
+                var url = $"http://api.urbandictionary.com/v0/define?term={query}";
+                var request = WebRequest.Create(url);
 
-            using (var streamReader = new StreamReader(response.GetResponseStream()))
-            {
-                string result = streamReader.ReadToEnd();
-                var militaryBase = JsonConvert.DeserializeObject<Root>(result);
-                Console.WriteLine(militaryBase.list[0].definition);
-            }
+                var response = request.GetResponse();
+                var httpStatusCode = (response as HttpWebResponse).StatusCode;
+
+                if (httpStatusCode != HttpStatusCode.OK)
+                {
+                    Console.WriteLine(httpStatusCode);
+                    return;
+                }
+
+                using (var streamReader = new StreamReader(response.GetResponseStream()))
+                {
+                    string result = streamReader.ReadToEnd();
+                    var militaryBase = JsonConvert.DeserializeObject<Root>(result);
+
+                    try
+                    {
+                        bot.SendTextMessageAsync(arg.Message.Chat.Id, militaryBase.list[0].definition);
+                        Console.WriteLine($"Right - {query}");
+                    }
+
+                    catch (System.ArgumentOutOfRangeException)
+                    {
+                        bot.SendTextMessageAsync(arg.Message.Chat.Id, $"Wrong word: {query}");
+                        Console.WriteLine($"Wrong - {query}");
+                    }
+                }
+            };
+
+            bot.StartReceiving();
+
+            Console.ReadKey();
         }
     }
 }
